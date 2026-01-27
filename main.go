@@ -1,4 +1,5 @@
-package go
+package creamgo
+
 import (
 	"fmt"
 	"math/rand"
@@ -26,16 +27,17 @@ type model struct {
 	playerX int
 	playerY int
 	mapData [][]rune
-	width int
-	height int
+	width   int
+	height  int
+	scene   string
 }
 
 func initialModel() model {
-	m := model {
+	m := model{
 		playerX: 10,
 		playerY: 10,
-		width: 19,
-		height: 19,
+		width:   19,
+		height:  19,
 	}
 	m.generateMap()
 	return m
@@ -45,43 +47,45 @@ func (m *model) generateMap() {
 	tiles := []rune{'T', '~', '^', ' ', ' ', ' '}
 	m.mapData = make([][]rune, m.height)
 	for y := 0; y < m.height; y++ {
-		row := make([][]rune, m.width)
+		row := make([]rune, m.width)
 		for x := 0; x < m.width; x++ {
-			row[x] := tiles[rand.Intn(len(tiles))]
+			row[x] = tiles[rand.Intn(len(tiles))]
 		}
 		m.mapData[y] = row
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	retrun nil
+	return nil
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-		case tea.KsyMsg:
-			switch msg.String() {
-			case "ctrl+c", "q", "esc":
-				return m, tea.Quit
-			case "up":
-				if m.playerY > 0 {
-					m.playerY--
-				}
-			case "down":
-				if m.playerY < m.height-1 {
-					m.playerY++
-				}
-			case "left":
-				if m.playerX > 0 {
-					m.playerX--
-				}
-			case "right":
-				if m.playerX < m.width -1 {
-					m.playerX++
-				}
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q", "esc":
+			return m, tea.Quit
+		case "up":
+			if m.playerY > 0 {
+				m.playerY--
+			}
+		case "down":
+			if m.playerY < m.height-1 {
+				m.playerY++
+			}
+		case "left":
+			if m.playerX > 0 {
+				m.playerX--
+			}
+		case "right":
+			if m.playerX < m.width-1 {
+				m.playerX++
+			}
+		case "b":
+			m = m.Battle()
 		}
 	}
- 	return m, nil
+	return m, nil
 }
 
 func (m model) View() string {
@@ -89,44 +93,56 @@ func (m model) View() string {
 
 	s.WriteString(playerStyle.Render("くりぃむ大戦 \n\n"))
 
-    for y := 0; y < m.height; y++ {
-    	for x := 0; x < m.width; x++ {
-		if x == m.playerX && y == m.playerY {
-			s.WriteString(playerStyle.Render("🙋"))
-			continue
-		}
+	if m.scene == "field" {
+		for y := 0; y < m.height; y++ {
+			for x := 0; x < m.width; x++ {
+				if x == m.playerX && y == m.playerY {
+					s.WriteString(playerStyle.Render("🙋"))
+					continue
+				}
 
-			// マップチップの描画
-			char := m.mapData[y][x]
-			switch char {
-			case 'T':
-				s.WriteString(treeStyle.Render("🌲"))
-			case '~':
-				s.WriteString(waterStyle.Render("🌊"))
-			case '^':
-				s.WriteString(mtStyle.Render("🌋"))
-			default:
-				s.WriteString("  ") // 半角スペース2つ（全角1マス分）
+				// マップチップの描画
+				char := m.mapData[y][x]
+				switch char {
+				case 'T':
+					s.WriteString(treeStyle.Render("🌲"))
+				case '~':
+					s.WriteString(waterStyle.Render("🌊"))
+				case '^':
+					s.WriteString(mtStyle.Render("🌋"))
+				default:
+					s.WriteString("  ") // 半角スペース2つ（全角1マス分）
+				}
 			}
+			s.WriteString("\n")
 		}
+	}
+
+	if m.scene == "battle" {
+		s.WriteString(playerStyle.Render(monsterList[0].Dot))
+		s.WriteString(playerStyle.Render(monsterList[0].Name))
 		s.WriteString("\n")
 	}
 
 	s.WriteString(fmt.Sprintf("\n座標: (%d, %d)", m.playerX, m.playerY))
 	return s.String()
-	}
-
-
- 
-type Monster struct {
-	ID   int
-	Name string
-	HP int
-	MP int
-	Special []string
-	DOt string // ANSIエスケープシーケンス済みの文字列
 }
 
-func Encount(num int) 
+type Monster struct {
+	ID      int
+	Name    string
+	HP      int
+	MP      int
+	Special []string
+	Dot     string // ANSIエスケープシーケンス済みの文字列
+}
 
+func PickMonster(num int) Monster {
+	return monsterList[num]
+}
 
+func (m *model) Battle() model {
+	m.scene = "battle"
+	monster := PickMonster(0)
+
+}
