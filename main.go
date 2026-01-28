@@ -23,6 +23,16 @@ func main() {
 	}
 }
 
+
+type Monster struct {
+	ID      int
+	Name    string
+	HP      int
+	MP      int
+	Special []string
+	Dot     string // ANSIエスケープシーケンス済みの文字列
+}
+
 type model struct {
 	playerX int
 	playerY int
@@ -30,6 +40,8 @@ type model struct {
 	width   int
 	height  int
 	scene   string
+	turn string
+	action string
 }
 
 func initialModel() model {
@@ -38,6 +50,9 @@ func initialModel() model {
 		playerY: 10,
 		width:   19,
 		height:  19,
+		scene: "field"
+		turn: "player"
+		action: "menu" //fight magic item ...
 	}
 	m.generateMap()
 	return m
@@ -62,6 +77,7 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		if m.scene == "field" {
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
@@ -84,7 +100,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "b":
 			m = m.Battle()
 		}
-	}
+		}
+
+		if m.scene == "battle" && m.turn == "player" {
+			switch msg.String() {
+			case "1":
+				m.action = "Attack"
+			case "2":
+				m.action = "Item"
+			case "3":
+				m.action = "Magic"
+			case "4":
+				m.action = "Escape"
+			}
+
 	return m, nil
 }
 
@@ -128,14 +157,6 @@ func (m model) View() string {
 	return s.String()
 }
 
-type Monster struct {
-	ID      int
-	Name    string
-	HP      int
-	MP      int
-	Special []string
-	Dot     string // ANSIエスケープシーケンス済みの文字列
-}
 
 func PickMonster(num int) Monster {
 	return monsterList[num]
