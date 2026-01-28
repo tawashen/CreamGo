@@ -44,6 +44,20 @@ type model struct {
 	turn string
 	action string
 }
+// 修正版: アイテム機能を使うためにitemsフィールドが必要です
+/*
+type model struct {
+	playerX int
+	playerY int
+	mapData [][]rune
+	width   int
+	height  int
+	scene   string
+	turn    string
+	action  string
+	items   []Item  // アイテムリストを追加
+}
+*/
 
 func initialModel() model {
 	m := model{
@@ -51,9 +65,9 @@ func initialModel() model {
 		playerY: 10,
 		width:   19,
 		height:  19,
-		scene: "field"
-		turn: "player"
-		action: "menu" //fight magic item ...
+		scene:   "field",   // カンマ追加
+		turn:    "player",  // カンマ追加
+		action:  "menu",    // カンマ追加（最後のフィールドでも推奨）
 	}
 	m.generateMap()
 	return m
@@ -73,6 +87,21 @@ func (m *model) UseItem(Item string) model {
 	}
 
 }
+// 修正版: 複数の問題があります
+/*
+1. 引数の型: string → Item
+2. 引数名: Item → item (大文字で始まる変数名は推奨されません)
+3. stringにはKindフィールドがありません
+4. 戻り値が必要です
+
+func (m *model) UseItem(item Item) model {
+	switch item.Kind {
+	case "Heal":
+		// HP回復処理など
+	}
+	return *m  // modelを返す
+}
+*/
 
 
 func (m *model) generateMap() {
@@ -140,6 +169,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.action = "UseItem"
 					m.UseItem(SelectedItem)
 				}
+			// 修正版: 複数の変数名の間違いがあります
+			/*
+			case "SelectItem":
+				index, err := strconv.Atoi(msg.String())  // idex → index
+				if err == nil && index >= 1 && index <= len(m.items) {  // idx → index
+					selectedItem := m.items[index-1]  // SelectedItem → selectedItem
+					m.action = "UseItem"
+					m.UseItem(selectedItem)
+				}
+			// 注意: m.itemsフィールドをmodelに追加する必要があります
+			*/
 			}
 		}
 	}
@@ -197,3 +237,14 @@ func (m *model) Battle() model {
 	monster := PickMonster(0)
 
 }
+// 修正版: 未使用変数と戻り値の問題があります
+/*
+func (m *model) Battle() model {
+	m.scene = "battle"
+	monster := PickMonster(0)
+	// monsterを使用するか、_ := PickMonster(0) にする
+	// 例: m.currentMonster = monster (currentMonsterフィールドを追加する場合)
+	
+	return *m  // 戻り値を返す必要があります
+}
+*/
