@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"strconv"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -98,24 +99,37 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.playerX++
 			}
 		case "b":
-			m = m.Battle()
+			m.scene = "battle"
 		}
 		}
 
 		if m.scene == "battle" && m.turn == "player" {
+			switch m.action {
+			case "Menu":
 			switch msg.String() {
 			case "1":
 				m.action = "Attack"
 			case "2":
-				m.action = "Item"
+				m.action = "SelectItem"
 			case "3":
-				m.action = "Magic"
+				m.action = "SelecSpecial"
 			case "4":
 				m.action = "Escape"
 			}
 
-	return m, nil
+			case "SelectItem":
+				idex, err := strconv.Atoi(msg.String())
+				if err == nil && idex >= 1 && idx <= len(m.items) {
+					SelectedItem := m.items[idx-1]
+					m.action = "UseItem"
+					m.UseItem(SelectedItem)
+				}
+			}
+		}
+	}
+		return m, nil
 }
+
 
 func (m model) View() string {
 	var s strings.Builder
