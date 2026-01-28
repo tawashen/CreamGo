@@ -59,6 +59,22 @@ func initialModel() model {
 	return m
 }
 
+type Item struct {
+	Name string
+	Kind string
+	Power int
+	Value int
+}
+
+func (m *model) UseItem(Item string) model {
+	switch Item.Kind {
+	case "Heal":
+		
+	}
+
+}
+
+
 func (m *model) generateMap() {
 	tiles := []rune{'T', '~', '^', ' ', ' ', ' '}
 	m.mapData = make([][]rune, m.height)
