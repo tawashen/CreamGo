@@ -36,6 +36,39 @@ type Monster struct {
 	Dot     string // ANSIエスケープシーケンス済みの文字列
 }
 
+// type model struct {
+// 	PlayerX int
+// 	PlayerY int
+// 	Attack int
+// 	Defend int
+// 	Weapon *Weapon
+// 	Armor *Armor
+// 	Gold int
+// 	Items []Item
+// 	Status []string
+// 	MapData [][]rune
+// 	Width   int
+// 	Height  int
+// 	Scene   string
+// 	Turn string
+// 	Action string
+// 	CurrentMonster *Monster
+// 	Msg string
+// }
+// 修正版: WeaponとArmorの型定義が必要です
+
+type Weapon struct {
+	Name  string
+	Power int
+	Value int
+}
+
+type Armor struct {
+	Name    string
+	Defense int
+	Value   int
+}
+
 type model struct {
 	PlayerX int
 	PlayerY int
@@ -53,8 +86,10 @@ type model struct {
 	Turn string
 	Action string
 	CurrentMonster *Monster
-	Msg string
+	Messages []string  // メッセージ履歴用（推奨）
+	Msg string        // 現在のメッセージ用
 }
+
 
 
 func initialModel() model {
@@ -80,6 +115,32 @@ func initialModel() model {
 	m.generateMap()
 	return m
 }
+// 修正版: スライスリテラルの構文エラーとフィールド名の間違いがあります
+/*
+func initialModel() model {
+	m := model{
+		PlayerX: 10,
+		PlayerY: 10,
+		Attack: 5,
+		Defend: 5,
+		Weapon: nil,
+		Armor: nil,
+		Gold: 0,
+		Items: []Item{},      // []{}ではなく[]Item{}
+		Status: []string{},   // []{}ではなく[]string{}
+		MapData: [][]rune{},  // Mapdata → MapData, [][]{}ではなく[][]rune{}
+		Width:   19,
+		Height:  19,
+		Scene:   "field",
+		Turn:    "player",
+		Action:  "menu",
+		CurrentMonster: nil,
+		Msg: "",             // ""の前にコロンが必要
+	}
+	m.generateMap()
+	return m
+}
+*/
 
 type Item struct {
 	Name string
@@ -95,6 +156,25 @@ func (m *model) UseItem(item Item) model {
 	}
 
 }
+// 修正版: 戻り値が必要です
+/*
+func (m *model) UseItem(item Item) {  // modelを返さずにポインタで直接変更
+	switch item.Kind {
+	case "Heal":
+		// HP回復処理
+		m.Msg = fmt.Sprintf("%sを使用しました", item.Name)
+	}
+}
+
+// または戻り値ありの場合:
+func (m *model) UseItem(item Item) model {
+	switch item.Kind {
+	case "Heal":
+		m.Msg = fmt.Sprintf("%sを使用しました", item.Name)
+	}
+	return *m
+}
+*/
 
 
 
@@ -164,6 +244,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Action = "UseItem"
 					m.UseItem(SelectedItem)
 				}
+			// 修正版: 変数名の間違いがあります
+			/*
+			case "SelectItem":
+				index, err := strconv.Atoi(msg.String())
+				if err == nil && index >= 1 && index <= len(m.Items) {  // idx → index
+					selectedItem := m.Items[index-1]  // SelectedItem → selectedItem
+					m.Action = "UseItem"
+					m.UseItem(selectedItem)
+				}
+			*/
 			}
 		}
 	}
@@ -208,6 +298,23 @@ func (m model) View() string {
 		s.WriteString(playerStyle.Render(m.Msg))
 		s.WriteString("\n")
 	}
+	// 修正版: フィールド名の大文字小文字が間違っています
+	/*
+	if m.Scene == "battle" {  // m.scene → m.Scene
+		if m.CurrentMonster != nil {  // nilチェックを追加
+			s.WriteString(playerStyle.Render(m.CurrentMonster.Dot))
+			s.WriteString(playerStyle.Render(m.CurrentMonster.Name))
+			s.WriteString("\n")
+		}
+		s.WriteString(playerStyle.Render(m.Msg))
+		s.WriteString("\n")
+		
+		// メッセージ履歴を表示する場合:
+		// for _, message := range m.Messages {
+		//     s.WriteString(message + "\n")
+		// }
+	}
+	*/
 
 	s.WriteString(fmt.Sprintf("\n座標: (%d, %d)", m.PlayerX, m.PlayerY))
 	return s.String()
@@ -232,4 +339,37 @@ func (m *model) Battle() tea.Model {
 	}
 	return m
 }
+// 修正版: 複数の構文エラーがあります
+/*
+func (m *model) Battle() tea.Model {
+	switch m.Action {  // swtich → switch
+	case "Attack":     // コロンを削除
+		if m.CurrentMonster == nil {  // nilチェック追加
+			m.Msg = "敵がいません"
+			return m
+		}
+		
+		monster := m.CurrentMonster
+		weaponPower := 0
+		if m.Weapon != nil {  // nilチェック追加
+			weaponPower = m.Weapon.Power
+		}
+		
+		damage := (m.Attack + weaponPower) - monster.Defend
+		if damage <= 0 {
+			damage = 1  // 最低1ダメージ
+		}
+		
+		monster.HP -= damage  // HPを減らす
+		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！", monster.Name, damage)
+		m.Msg = msg
+		
+		// メッセージ履歴に追加する場合:
+		// m.Messages = append(m.Messages, msg)
+		
+		m.Action = "menu"  // アクションをリセット
+	}
+	return m
+}
+*/
 
