@@ -53,6 +53,7 @@ type model struct {
 	Turn string
 	Action string
 	CurrentMonster *Monster
+	Msg string
 }
 
 
@@ -62,15 +63,19 @@ func initialModel() model {
 		PlayerY: 10,
 		Attack: 5,
 		Defend: 5,
-		Weapon nil,
-		Armor nil,
-		Gold 0,
-		Items [],
+		Weapon: nil,
+		Armor: nil,
+		Gold: 0,
+		Items: []{},
+		Status: []{},
+		Mapdata: [][]{},
 		Width:   19,
 		Height:  19,
 		Scene:   "field",   // カンマ追加
 		Turn:    "player",  // カンマ追加
 		Action:  "menu",    // カンマ追加（最後のフィールドでも推奨）
+		CurrentMonster: nil,
+		Msg "",
 	}
 	m.generateMap()
 	return m
@@ -200,6 +205,8 @@ func (m model) View() string {
 		s.WriteString(playerStyle.Render(monsterList[0].Dot))
 		s.WriteString(playerStyle.Render(monsterList[0].Name))
 		s.WriteString("\n")
+		s.WriteString(playerStyle.Render(m.Msg))
+		s.WriteString("\n")
 	}
 
 	s.WriteString(fmt.Sprintf("\n座標: (%d, %d)", m.PlayerX, m.PlayerY))
@@ -211,16 +218,18 @@ func (m model) View() string {
 //	return monsterList[num]
 //}
 
-func (m *model) Battle() (tea.Model, tea.Cmd) {
-	m.Scene = "battle"
+func (m *model) Battle() tea.Model {
 	swtich m.Action {
 	case "Attack" :
-		damage := 
-		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n", )
+		monster := m.CurrentMonster
+		damage := (m.Attack + m.Weapon.Power) - monster.Defend
+		if damage <= 0 {
+			damage = 0
+		}
 
+		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n", monster.Name, damage)
+		m.Msg = msg
 	}
-	monster := PickMonster(0)
-
-
+	return m
 }
 
