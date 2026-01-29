@@ -30,44 +30,47 @@ type Monster struct {
 	Name    string
 	HP      int
 	MP      int
+	Attack int
+	Defend int
 	Special []string
 	Dot     string // ANSIエスケープシーケンス済みの文字列
 }
 
 type model struct {
-	playerX int
-	playerY int
-	mapData [][]rune
-	width   int
-	height  int
-	scene   string
-	turn string
-	action string
+	PlayerX int
+	PlayerY int
+	Attack int
+	Defend int
+	Weapon *Weapon
+	Armor *Armor
+	Gold int
+	Items []Item
+	Status []string
+	MapData [][]rune
+	Width   int
+	Height  int
+	Scene   string
+	Turn string
+	Action string
+	CurrentMonster *Monster
 }
-// 修正版: アイテム機能を使うためにitemsフィールドが必要です
-/*
-type model struct {
-	playerX int
-	playerY int
-	mapData [][]rune
-	width   int
-	height  int
-	scene   string
-	turn    string
-	action  string
-	items   []Item  // アイテムリストを追加
-}
-*/
+
 
 func initialModel() model {
 	m := model{
-		playerX: 10,
-		playerY: 10,
-		width:   19,
-		height:  19,
-		scene:   "field",   // カンマ追加
-		turn:    "player",  // カンマ追加
-		action:  "menu",    // カンマ追加（最後のフィールドでも推奨）
+		PlayerX: 10,
+		PlayerY: 10,
+		Attack: 5,
+		Defend: 5,
+		Weapon nil,
+		Armor nil,
+		Gold 0,
+		Items [],
+		Width:   19,
+		Height:  19,
+		Scene:   "field",   // カンマ追加
+		Turn:    "player",  // カンマ追加
+		Action:  "menu",    // カンマ追加（最後のフィールドでも推奨）
 	}
 	m.generateMap()
 	return m
@@ -80,39 +83,25 @@ type Item struct {
 	Value int
 }
 
-func (m *model) UseItem(Item string) model {
-	switch Item.Kind {
+func (m *model) UseItem(item Item) model {
+	switch item.Kind {
 	case "Heal":
 		
 	}
 
 }
-// 修正版: 複数の問題があります
-/*
-1. 引数の型: string → Item
-2. 引数名: Item → item (大文字で始まる変数名は推奨されません)
-3. stringにはKindフィールドがありません
-4. 戻り値が必要です
 
-func (m *model) UseItem(item Item) model {
-	switch item.Kind {
-	case "Heal":
-		// HP回復処理など
-	}
-	return *m  // modelを返す
-}
-*/
 
 
 func (m *model) generateMap() {
 	tiles := []rune{'T', '~', '^', ' ', ' ', ' '}
-	m.mapData = make([][]rune, m.height)
-	for y := 0; y < m.height; y++ {
-		row := make([]rune, m.width)
-		for x := 0; x < m.width; x++ {
+	m.MapData = make([][]rune, m.Height)
+	for y := 0; y < m.Height; y++ {
+		row := make([]rune, m.Width)
+		for x := 0; x < m.Width; x++ {
 			row[x] = tiles[rand.Intn(len(tiles))]
 		}
-		m.mapData[y] = row
+		m.MapData[y] = row
 	}
 }
 
@@ -123,63 +112,53 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		if m.scene == "field" {
+		if m.Scene == "field" {
 		switch msg.String() {
 		case "ctrl+c", "q", "esc":
 			return m, tea.Quit
 		case "up":
-			if m.playerY > 0 {
-				m.playerY--
+			if m.PlayerY > 0 {
+				m.PlayerY--
 			}
 		case "down":
-			if m.playerY < m.height-1 {
-				m.playerY++
+			if m.PlayerY < m.Height-1 {
+				m.PlayerY++
 			}
 		case "left":
-			if m.playerX > 0 {
-				m.playerX--
+			if m.PlayerX > 0 {
+				m.PlayerX--
 			}
 		case "right":
-			if m.playerX < m.width-1 {
-				m.playerX++
+			if m.PlayerX < m.Width-1 {
+				m.PlayerX++
 			}
 		case "b":
-			m.scene = "battle"
+			m.Scene = "battle"
+			m.CurrentMonster = monsterList[0]
 		}
 		}
 
-		if m.scene == "battle" && m.turn == "player" {
-			switch m.action {
+		if m.Scene == "battle" && m.Turn == "player" {
+			switch m.Action {
 			case "Menu":
 			switch msg.String() {
 			case "1":
-				m.action = "Attack"
+				m.Action = "Attack"
 			case "2":
-				m.action = "SelectItem"
+				m.Action = "SelectItem"
 			case "3":
-				m.action = "SelecSpecial"
+				m.Action = "SelecSpecial"
 			case "4":
-				m.action = "Escape"
+				m.Action = "Escape"
 			}
 
 			case "SelectItem":
-				idex, err := strconv.Atoi(msg.String())
-				if err == nil && idex >= 1 && idx <= len(m.items) {
-					SelectedItem := m.items[idx-1]
-					m.action = "UseItem"
+				index, err := strconv.Atoi(msg.String())
+				if err == nil && index >= 1 && idx <= len(m.Items) {
+					SelectedItem := m.Items[index-1]
+					m.Action = "UseItem"
 					m.UseItem(SelectedItem)
 				}
-			// 修正版: 複数の変数名の間違いがあります
-			/*
-			case "SelectItem":
-				index, err := strconv.Atoi(msg.String())  // idex → index
-				if err == nil && index >= 1 && index <= len(m.items) {  // idx → index
-					selectedItem := m.items[index-1]  // SelectedItem → selectedItem
-					m.action = "UseItem"
-					m.UseItem(selectedItem)
-				}
-			// 注意: m.itemsフィールドをmodelに追加する必要があります
-			*/
 			}
 		}
 	}
@@ -192,16 +171,16 @@ func (m model) View() string {
 
 	s.WriteString(playerStyle.Render("くりぃむ大戦 \n\n"))
 
-	if m.scene == "field" {
-		for y := 0; y < m.height; y++ {
-			for x := 0; x < m.width; x++ {
-				if x == m.playerX && y == m.playerY {
+	if m.Scene == "field" {
+		for y := 0; y < m.Height; y++ {
+			for x := 0; x < m.Width; x++ {
+				if x == m.PlayerX && y == m.PlayerY {
 					s.WriteString(playerStyle.Render("🙋"))
 					continue
 				}
 
 				// マップチップの描画
-				char := m.mapData[y][x]
+				char := m.MapData[y][x]
 				switch char {
 				case 'T':
 					s.WriteString(treeStyle.Render("🌲"))
@@ -223,28 +202,25 @@ func (m model) View() string {
 		s.WriteString("\n")
 	}
 
-	s.WriteString(fmt.Sprintf("\n座標: (%d, %d)", m.playerX, m.playerY))
+	s.WriteString(fmt.Sprintf("\n座標: (%d, %d)", m.PlayerX, m.PlayerY))
 	return s.String()
 }
 
 
-func PickMonster(num int) Monster {
-	return monsterList[num]
-}
+//func PickMonster(num int) Monster {
+//	return monsterList[num]
+//}
 
-func (m *model) Battle() model {
-	m.scene = "battle"
+func (m *model) Battle() (tea.Model, tea.Cmd) {
+	m.Scene = "battle"
+	swtich m.Action {
+	case "Attack" :
+		damage := 
+		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n", )
+
+	}
 	monster := PickMonster(0)
 
+
 }
-// 修正版: 未使用変数と戻り値の問題があります
-/*
-func (m *model) Battle() model {
-	m.scene = "battle"
-	monster := PickMonster(0)
-	// monsterを使用するか、_ := PickMonster(0) にする
-	// 例: m.currentMonster = monster (currentMonsterフィールドを追加する場合)
-	
-	return *m  // 戻り値を返す必要があります
-}
-*/
+
