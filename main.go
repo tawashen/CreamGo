@@ -5,10 +5,14 @@ import (
 	"math/rand"
 	"strings"
 	"strconv"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// カスタムメッセージ型（時間待ち用）
+type DelayMsg struct{}
 
 var (
 	playerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#000000"))
@@ -83,7 +87,9 @@ func initialModel() model {
 		Weapon: nil,
 		Armor: nil,
 		Gold: 0,
-		Items: []Item{},
+		Items: []Item{
+			{Name: "薬草", Kind: "Heal", Power: 10, Value: 8},
+		},
 		Status: []string{},
 		MapData: [][]rune{},
 		Width:   19,
@@ -106,12 +112,18 @@ type Item struct {
 	Value int
 }
 
-func (m *model) UseItem(item Item) {
+
+
+func (m *model) UseItem(item Item) tea.Cmd {
 	switch item.Kind {
 	case "Heal":
-		m.Msg = fmt.Sprintf("%sを使った！あなたの体力は%d回復した", item.Name, item.Power)
+		m.Msg = fmt.Sprintf("%sを使った！あなたの体力は%d回復した\n\n\n", item.Name, item.Power)
 		m.HP += item.Power
-		m.Action = "menu"
+		m.Action = "waiting"
+
+		return tea.Tick(time.Second, func(time.Time) tea.Msg {
+			return DelayMsg{}
+		})
 	}
 }
 
@@ -133,6 +145,31 @@ func (m model) Init() tea.Cmd {
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case DelayMsg:
+		// 時間待ち後の処理
+		if m.Scene == "battle" && m.Action == "waiting" {
+			m.Action = "menu"  // メニューに戻る
+			m.Msg = ""         // メッセージをクリア
+			
+			// 敵が倒れた場合の処理
+			if m.CurrentMonster != nil && m.CurrentMonster.HP <= 0 {
+				m.Msg = fmt.Sprintf("%sを倒した！\n\n\n", m.CurrentMonster.Name)
+				// さらに1秒後にフィールドに戻る場合
+				 m.Action = "victory"
+				 return m, tea.Tick(time.Second, func(time.Time) tea.Msg {
+				     return DelayMsg{}
+				 })
+			}
+		}
+
+		if m.Scene == "battle" && m.Action == "victory" {
+			m.Scene = "field"
+		}
+
+		if m.Scene == 
+
+		return m, nil
+		
 	case tea.KeyMsg:
 		if m.Scene == "field" {
 		switch msg.String() {
@@ -164,10 +201,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		if m.Scene == "battle" && m.Turn == "player" {
 			switch m.Action {
-			case "menu":  // "Menu" → "menu" (小文字に統一)
+			case "menu":
 				switch msg.String() {
 				case "1":
-					m.Action = "Attack"  // 攻撃を選択
+					// 攻撃を即座に実行
+					return m, m.Battle()
 				case "2":
 					m.Action = "selectitem"
 				case "3":
@@ -176,21 +214,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.Action = "escape"
 				}
 			
-			case "Attack":
-				// 攻撃処理を実行
-				m.Battle()
-				m.Action = "menu"  // 処理後はメニューに戻る
-			
 			case "selectitem":
 				index, err := strconv.Atoi(msg.String())
 				if err == nil && index >= 1 && index <= len(m.Items) {
 					selectedItem := m.Items[index-1]
 					m.UseItem(selectedItem)
-					// UseItem内でm.Action = "menu"が設定される
 				}
 			
 			case "escape":
-				m.Scene = "field"  // フィールドに戻る
+				m.Scene = "field"
 				m.Action = "menu"
 			}
 		}
@@ -256,7 +288,7 @@ func (m model) View() string {
 				s.WriteString("2. アイテム\n")
 				s.WriteString("3. 特技\n")
 				s.WriteString("4. 逃げる\n")
-			case "selectitem":
+			case "selectItem":
 				s.WriteString("アイテムを選んでください:\n")
 				for i, item := range m.Items {
 					s.WriteString(fmt.Sprintf("%d. %s\n", i+1, item.Name))
@@ -274,83 +306,30 @@ func (m model) View() string {
 //	return monsterList[num]
 //}
 
-func (m *model) Battle() {
-	switch m.Action {
-	case "Attack":
-
-		if m.CurrentMonster == nil {
-			m.Msg = "敵がいません"
-		}
-
-		monster := m.CurrentMonster
-
-
-		weaponPower := 0
-		if m.Weapon != nil {  // nilチェック追加
-			weaponPower = m.Weapon.Power
-		}
-		
-		damage := (m.Attack + weaponPower) - monster.Defend
-		if damage <= 0 {
-			damage = 1  // 最低1ダメージ
-		}
-		
-		monster.HP -= damage  // HPを減らす
-		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！", monster.Name, damage)
-		m.Msg = msg
-		
-		// メッセージ履歴に追加する場合:
-		// m.Messages = append(m.Messages, msg)
-		
-		//m.Action = "menu"  // アクションをリセット
+func (m *model) Battle() tea.Cmd {
+	if m.CurrentMonster == nil {
+		m.Msg = "敵がいません"
+		return nil
 	}
-	//return m
-}
 
-/*
-		damage := (m.Attack + m.Weapon.Power) - monster.Defend
-		if damage <= 0 {
-			damage = 0
-		}
-
-		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n", monster.Name, damage)
-		m.Msg = msg
+	monster := m.CurrentMonster
+	weaponPower := 0
+	if m.Weapon != nil {
+		weaponPower = m.Weapon.Power
 	}
-	//return m
-}
-	*/
-
-// 修正版: 複数の構文エラーがあります
-/*
-func (m *model) Battle() tea.Model {
-	switch m.Action {  // swtich → switch
-	case "Attack":     // コロンを削除
-		if m.CurrentMonster == nil {  // nilチェック追加
-			m.Msg = "敵がいません"
-			return m
-		}
-		
-		monster := m.CurrentMonster
-		weaponPower := 0
-		if m.Weapon != nil {  // nilチェック追加
-			weaponPower = m.Weapon.Power
-		}
-		
-		damage := (m.Attack + weaponPower) - monster.Defend
-		if damage <= 0 {
-			damage = 1  // 最低1ダメージ
-		}
-		
-		monster.HP -= damage  // HPを減らす
-		msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！", monster.Name, damage)
-		m.Msg = msg
-		
-		// メッセージ履歴に追加する場合:
-		// m.Messages = append(m.Messages, msg)
-		
-		m.Action = "menu"  // アクションをリセット
+	
+	damage := (m.Attack + weaponPower) - monster.Defend
+	if damage <= 0 {
+		damage = 1
 	}
-	return m
+	
+	monster.HP -= damage
+	msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n\n\n", monster.Name, damage)
+	m.Msg = msg
+	m.Action = "waiting"  // 待機状態に変更
+	
+	// 1秒後にDelayMsgを送信
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return DelayMsg{}
+	})
 }
-*/
-
