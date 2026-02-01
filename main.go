@@ -14,6 +14,79 @@ import (
 // カスタムメッセージ型（時間待ち用）
 type DelayMsg struct{}
 
+// より詳細なメッセージ型の例
+
+// // 1. 連鎖演出用メッセージ
+// type AttackAnimationMsg struct{}
+// type DamageCalculationMsg struct{}
+// type BattleEndMsg struct{}
+
+// 2. 条件分岐用メッセージ（データ付き）
+type VictoryMsg struct {
+	ExpGained  int
+	GoldGained int
+}
+
+//type LowHPWarningMsg struct{}
+type CriticalHitMsg struct{}
+type NormalAttackEndMsg struct{}
+
+// 3. アニメーション用メッセージ
+//type MonsterAnimationMsg struct{}
+//type StartAttackAnimationMsg struct{}
+
+// 4. 音声・効果用メッセージ
+//type SoundEffectMsg struct {
+//	Sound string  // "attack.wav", "victory.wav" など
+//}
+//type ScreenShakeMsg struct{}
+//type ShowDamageMsg struct {
+//	Damage int
+//}
+
+// 5. 複雑な演出用メッセージ
+// type PlayAttackSoundMsg struct{}
+// type ShowDamageNumbersMsg struct {
+// 	Damage int
+// }
+// type AttackSequenceEndMsg struct{}
+
+// 6. モンスターアニメーション用の拡張
+// type Monster struct {
+// 	ID      int
+// 	Name    string
+// 	HP      int
+// 	MaxHP   int     // 最大HP追加
+// 	MP      int
+// 	Attack  int
+// 	Defend  int
+// 	Special []string
+// 	Dot     string
+// 	AnimationDots []string  // アニメーション用の複数ドット
+// }
+
+// 7. モデルにアニメーション関連フィールド追加
+// type model struct {
+// 	// ... 既存フィールド
+// 	animationFrame int      // 現在のアニメーションフレーム
+// 	monsterDots    []string // モンスターのアニメーションドット配列
+// }
+
+// 実際の音声ライブラリ使用例（疑似コード）
+/*
+import (
+	"github.com/faiface/beep"
+	"github.com/faiface/beep/wav"
+	"github.com/faiface/beep/speaker"
+)
+
+func playSound(filename string) {
+	// WAVファイルを読み込んで再生
+	// 実装は音声ライブラリのドキュメント参照
+}
+*/
+
+
 var (
 	playerStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#FFFFFF")).Background(lipgloss.Color("#000000"))
 	treeStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF00"))
@@ -71,7 +144,7 @@ type model struct {
 	Turn string
 	Action string
 	CurrentMonster *Monster
-	Messages []string  // メッセージ履歴用（推奨）
+	//Messages []string  // メッセージ履歴用（推奨）
 	Msg string        // 現在のメッセージ用
 }
 
@@ -125,6 +198,7 @@ func (m *model) UseItem(item Item) tea.Cmd {
 			return DelayMsg{}
 		})
 	}
+	return nil
 }
 
 func (m *model) generateMap() {
@@ -166,9 +240,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Scene = "field"
 		}
 
-		if m.Scene == 
+		//if m.Scene == 
 
-		return m, nil
+		//return m, nil
 		
 	case tea.KeyMsg:
 		if m.Scene == "field" {
@@ -332,4 +406,124 @@ func (m *model) Battle() tea.Cmd {
 	return tea.Tick(time.Second, func(time.Time) tea.Msg {
 		return DelayMsg{}
 	})
+	
+	// 実用的な使用例集:
+	/*
+	// 1. 連鎖的な演出（Update内でmsg送信を連鎖）
+	// Battle関数で最初のメッセージ送信
+	return tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+		return AttackAnimationMsg{}
+	})
+	
+	// Update関数で連鎖処理
+	case AttackAnimationMsg:
+		m.Msg = "攻撃！"
+		return m, tea.Tick(300*time.Millisecond, func(time.Time) tea.Msg {
+			return DamageCalculationMsg{}
+		})
+	
+	case DamageCalculationMsg:
+		m.Msg = fmt.Sprintf("%dのダメージ！", damage)
+		return m, tea.Tick(800*time.Millisecond, func(time.Time) tea.Msg {
+			return BattleEndMsg{}
+		})
+	
+	case BattleEndMsg:
+		m.Action = "menu"
+		m.Msg = ""
+		return m, nil
+	
+	// 2. 条件分岐でメッセージを変化（実践的！）
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		if monster.HP <= 0 {
+			return VictoryMsg{ExpGained: 100, GoldGained: 50}
+		} else if monster.HP < monster.MaxHP/4 {
+			return LowHPWarningMsg{}  // 瀕死警告
+		} else if damage > 50 {
+			return CriticalHitMsg{}   // クリティカル
+		}
+		return NormalAttackEndMsg{}   // 通常攻撃終了
+	})
+	
+	// 3. tea.Everyでアニメーション（条件付き制御）
+	// モンスターのアニメーション開始
+	if m.Action == "monster_animation" {
+		return tea.Every(200*time.Millisecond, func(time.Time) tea.Msg {
+			return MonsterAnimationMsg{}
+		})
+	}
+	
+	// Update関数でアニメーション制御
+	case MonsterAnimationMsg:
+		if m.Action != "monster_animation" {
+			// アニメーション停止条件
+			return m, nil
+		}
+		// アニメーションフレーム更新
+		m.animationFrame = (m.animationFrame + 1) % len(m.monsterDots)
+		m.CurrentMonster.Dot = m.monsterDots[m.animationFrame]
+		return m, nil  // tea.Everyが自動で次のフレームを送信
+	
+	// アニメーション停止
+	case SomeOtherMsg:
+		m.Action = "menu"  // これでMonsterAnimationMsgが停止
+	
+	// 4. tea.Batchの実用例
+	// 複数の効果を同時実行
+	return tea.Batch(
+		// 効果音再生（500ms後）
+		tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
+			return SoundEffectMsg{Sound: "attack.wav"}
+		}),
+		// 画面シェイク（100ms後）
+		tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
+			return ScreenShakeMsg{}
+		}),
+		// ダメージ表示（1秒後）
+		tea.Tick(time.Second, func(time.Time) tea.Msg {
+			return ShowDamageMsg{Damage: damage}
+		}),
+	)
+	
+	// 5. 音声について（重要！）
+	// Bubble Tea自体は音を出せませんが、メッセージで音声再生を指示できます
+	case SoundEffectMsg:
+		// 外部ライブラリで音声再生
+		// 例: github.com/faiface/beep
+		// playSound(msg.Sound)
+		return m, nil
+	
+	// 実際の音声実装例（疑似コード）
+	/*
+	import "github.com/faiface/beep/speaker"
+	
+	case SoundEffectMsg:
+		switch msg.Sound {
+		case "attack.wav":
+			// 攻撃音再生
+			playAttackSound()
+		case "victory.wav":
+			// 勝利音再生
+			playVictorySound()
+		}
+		return m, nil
+	*/
+	
+	// 6. 複雑な演出の組み合わせ例
+	// 攻撃 → アニメーション → 音 → ダメージ表示 → 結果
+	// return tea.Batch(
+	// 	tea.Tick(0, func(time.Time) tea.Msg {
+	// 		return StartAttackAnimationMsg{}
+	// 	}),
+	// 	tea.Tick(300*time.Millisecond, func(time.Time) tea.Msg {
+	// 		return PlayAttackSoundMsg{}
+	// 	}),
+	// 	tea.Tick(600*time.Millisecond, func(time.Time) tea.Msg {
+	// 		return ShowDamageNumbersMsg{Damage: damage}
+	// 	}),
+	// 	tea.Tick(1200*time.Millisecond, func(time.Time) tea.Msg {
+	// 		return AttackSequenceEndMsg{}
+	// 	}),
+	// )
+	
 }
