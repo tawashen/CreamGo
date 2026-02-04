@@ -190,7 +190,7 @@ type Item struct {
 func (m *model) UseItem(item Item) tea.Cmd {
 	switch item.Kind {
 	case "Heal":
-		m.Msg = fmt.Sprintf("%sを使った！あなたの体力は%d回復した\n\n\n", item.Name, item.Power)
+		m.Msg = fmt.Sprintf("%sを使った！あなたの体力は%d回復した\n\n", item.Name, item.Power)
 		m.HP += item.Power
 		m.Action = "waiting"
 
@@ -237,6 +237,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if m.Scene == "battle" && m.Action == "victory" {
+			m.Msg = ""
+			m.Action = "menu"
+			m.Turn = "player"
 			m.Scene = "field"
 		}
 
@@ -292,7 +295,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				index, err := strconv.Atoi(msg.String())
 				if err == nil && index >= 1 && index <= len(m.Items) {
 					selectedItem := m.Items[index-1]
-					m.UseItem(selectedItem)
+					return m, m.UseItem(selectedItem)
 				}
 			
 			case "escape":
@@ -346,12 +349,12 @@ func (m model) View() string {
 			text := fmt.Sprintf("%sが現れた！ (HP: %d)", 
 				m.CurrentMonster.Name, m.CurrentMonster.HP)
 			s.WriteString(playerStyle.Render(text))
-			s.WriteString("\n\n")
+			s.WriteString("\n\n\n\n")
 			
 			// メッセージ表示
 			if m.Msg != "" {
 				s.WriteString(playerStyle.Render(m.Msg))
-				s.WriteString("\n\n")
+				s.WriteString("\n\n\n\n")
 			}
 			
 			// アクションに応じたメニュー表示
@@ -362,11 +365,13 @@ func (m model) View() string {
 				s.WriteString("2. アイテム\n")
 				s.WriteString("3. 特技\n")
 				s.WriteString("4. 逃げる\n")
-			case "selectItem":
+			case "selectitem":
 				s.WriteString("アイテムを選んでください:\n")
 				for i, item := range m.Items {
-					s.WriteString(fmt.Sprintf("%d. %s\n", i+1, item.Name))
+					s.WriteString(fmt.Sprintf("%d. %s  ", i+1, item.Name))
+				
 				}
+				s.WriteString("\n\n\n\n")
 			}
 		}
 	}
@@ -398,7 +403,7 @@ func (m *model) Battle() tea.Cmd {
 	}
 	
 	monster.HP -= damage
-	msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n\n\n", monster.Name, damage)
+	msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n", monster.Name, damage)
 	m.Msg = msg
 	m.Action = "waiting"  // 待機状態に変更
 	
@@ -406,6 +411,7 @@ func (m *model) Battle() tea.Cmd {
 	return tea.Tick(time.Second, func(time.Time) tea.Msg {
 		return DelayMsg{}
 	})
+}
 	
 	// 実用的な使用例集:
 	/*
@@ -526,4 +532,4 @@ func (m *model) Battle() tea.Cmd {
 	// 	}),
 	// )
 	
-}
+
