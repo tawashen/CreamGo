@@ -222,29 +222,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DelayMsg:
 		// 時間待ち後の処理
 		if m.Scene == "battle" && m.Action == "waiting" && m.Turn == "player" { 
-		// 
 		//自分のターンだとメニューに戻るように変更
 			m.Action = "menu"  // メニューに戻る
 			m.Msg = ""         // メッセージをクリア
 
 			if m.CurrentMonster != nil && m.CurrentMonster.HP <= 0 {
-				m.Msg = fmt.Sprintf("%sを倒した！\n\n", m.CurrentMonster.Name)
+				m.Msg = fmt.Sprintf("%sを倒した！\n", m.CurrentMonster.Name)
 				// さらに1秒後にフィールドに戻る場合
 				 m.Action = "victory"
 				 return m, tea.Tick(time.Second, func(time.Time) tea.Msg {
 				     return DelayMsg{}
 				 })
 		}
+		}
 
 		if m.Scene == "battle" && m.Action == "waiting" && m.Turn == "enemy" {
-			//m.Action = "enemyAction"
 			m.Msg = ""
 			m.Action = ""
 			return m, m.EnemyBattle()
-
-
 			}
-		}
+		
 
 		if m.Scene == "battle" && m.Action == "victory" {
 			m.Msg = ""
@@ -318,7 +315,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var s strings.Builder
 
-	s.WriteString(playerStyle.Render("くりぃむ大戦 \n\n"))
+	s.WriteString(playerStyle.Render("タイトル \n\n"))
 
 	if m.Scene == "field" {
 		s.WriteString("\n")
@@ -443,13 +440,13 @@ Actions
 
   */
 
-  func (m *model) EnemyBattle() tea.Cmd {
+func (m *model) EnemyBattle() tea.Cmd {
 	monster := m.CurrentMonster
-	armorpower := m.Armor.Defense
+	armorpower := 0 //m.Armor.Defense
 	damage := monster.Attack - (m.Defend + armorpower)
 
 	m.HP -= damage
-	msg := fmt.Sprintf("%sの攻撃！%dのダメージを受けた", monster.Name, damage)
+	msg := fmt.Sprintf("%sの攻撃！%dのダメージを受けた\n", monster.Name, damage)
 	m.Msg = msg
 	m.Action = "waiting"
 	m.Turn = "player"
