@@ -190,7 +190,7 @@ type Item struct {
 func (m *model) UseItem(item Item) tea.Cmd {
 	switch item.Kind {
 	case "Heal":
-		m.Msg = fmt.Sprintf("%sを使った！あなたの体力は%d回復した\n\n", item.Name, item.Power)
+		m.Msg = fmt.Sprintf("%sを使った！あなたの体力は%d回復した\n", item.Name, item.Power)
 		m.HP += item.Power
 		m.Action = "waiting"
 
@@ -221,18 +221,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case DelayMsg:
 		// 時間待ち後の処理
-		if m.Scene == "battle" && m.Action == "waiting" {
+		if m.Scene == "battle" && m.Action == "waiting" && m.Turn == "player" { 
+		// 
+		//自分のターンだとメニューに戻るように変更
 			m.Action = "menu"  // メニューに戻る
 			m.Msg = ""         // メッセージをクリア
-			
-			// 敵が倒れた場合の処理
+
 			if m.CurrentMonster != nil && m.CurrentMonster.HP <= 0 {
-				m.Msg = fmt.Sprintf("%sを倒した！\n\n\n", m.CurrentMonster.Name)
+				m.Msg = fmt.Sprintf("%sを倒した！\n\n", m.CurrentMonster.Name)
 				// さらに1秒後にフィールドに戻る場合
 				 m.Action = "victory"
 				 return m, tea.Tick(time.Second, func(time.Time) tea.Msg {
 				     return DelayMsg{}
 				 })
+		}
+
+		if m.Scene == "battle" && m.Action == "waiting" && m.Turn == "enemy" {
+			//m.Action = "enemyAction"
+			m.Msg = ""
+			m.Action = ""
+			return m, m.EnemyBattle()
+
+
 			}
 		}
 
@@ -243,9 +253,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.Scene = "field"
 		}
 
-		//if m.Scene == 
-
-		//return m, nil
 		
 	case tea.KeyMsg:
 		if m.Scene == "field" {
@@ -360,11 +367,16 @@ func (m model) View() string {
 			// アクションに応じたメニュー表示
 			switch m.Action {
 			case "menu":
+				switch m.Turn {
+				case "player":
 				s.WriteString("どうする？\n")
 				s.WriteString("1. 攻撃\n")
 				s.WriteString("2. アイテム\n")
 				s.WriteString("3. 特技\n")
 				s.WriteString("4. 逃げる\n")
+				case "enemy":
+					s.WriteString("\n\n\n\n\n")
+				}
 			case "selectitem":
 				s.WriteString("アイテムを選んでください:\n")
 				for i, item := range m.Items {
@@ -399,137 +411,50 @@ func (m *model) Battle() tea.Cmd {
 	
 	damage := (m.Attack + weaponPower) - monster.Defend
 	if damage <= 0 {
-		damage = 1
+		damage = 0
 	}
 	
 	monster.HP -= damage
 	msg := fmt.Sprintf("攻撃！ %sに%dのダメージ！\n", monster.Name, damage)
 	m.Msg = msg
 	m.Action = "waiting"  // 待機状態に変更
-	
+	m.Turn = "enemy"
 	// 1秒後にDelayMsgを送信
 	return tea.Tick(time.Second, func(time.Time) tea.Msg {
 		return DelayMsg{}
 	})
 }
-	
-	// 実用的な使用例集:
-	/*
-	// 1. 連鎖的な演出（Update内でmsg送信を連鎖）
-	// Battle関数で最初のメッセージ送信
-	return tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
-		return AttackAnimationMsg{}
-	})
-	
-	// Update関数で連鎖処理
-	case AttackAnimationMsg:
-		m.Msg = "攻撃！"
-		return m, tea.Tick(300*time.Millisecond, func(time.Time) tea.Msg {
-			return DamageCalculationMsg{}
-		})
-	
-	case DamageCalculationMsg:
-		m.Msg = fmt.Sprintf("%dのダメージ！", damage)
-		return m, tea.Tick(800*time.Millisecond, func(time.Time) tea.Msg {
-			return BattleEndMsg{}
-		})
-	
-	case BattleEndMsg:
-		m.Action = "menu"
-		m.Msg = ""
-		return m, nil
-	
-	// 2. 条件分岐でメッセージを変化（実践的！）
-	return tea.Tick(time.Second, func(time.Time) tea.Msg {
-		if monster.HP <= 0 {
-			return VictoryMsg{ExpGained: 100, GoldGained: 50}
-		} else if monster.HP < monster.MaxHP/4 {
-			return LowHPWarningMsg{}  // 瀕死警告
-		} else if damage > 50 {
-			return CriticalHitMsg{}   // クリティカル
-		}
-		return NormalAttackEndMsg{}   // 通常攻撃終了
-	})
-	
-	// 3. tea.Everyでアニメーション（条件付き制御）
-	// モンスターのアニメーション開始
-	if m.Action == "monster_animation" {
-		return tea.Every(200*time.Millisecond, func(time.Time) tea.Msg {
-			return MonsterAnimationMsg{}
-		})
-	}
-	
-	// Update関数でアニメーション制御
-	case MonsterAnimationMsg:
-		if m.Action != "monster_animation" {
-			// アニメーション停止条件
-			return m, nil
-		}
-		// アニメーションフレーム更新
-		m.animationFrame = (m.animationFrame + 1) % len(m.monsterDots)
-		m.CurrentMonster.Dot = m.monsterDots[m.animationFrame]
-		return m, nil  // tea.Everyが自動で次のフレームを送信
-	
-	// アニメーション停止
-	case SomeOtherMsg:
-		m.Action = "menu"  // これでMonsterAnimationMsgが停止
-	
-	// 4. tea.Batchの実用例
-	// 複数の効果を同時実行
-	return tea.Batch(
-		// 効果音再生（500ms後）
-		tea.Tick(500*time.Millisecond, func(time.Time) tea.Msg {
-			return SoundEffectMsg{Sound: "attack.wav"}
-		}),
-		// 画面シェイク（100ms後）
-		tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
-			return ScreenShakeMsg{}
-		}),
-		// ダメージ表示（1秒後）
-		tea.Tick(time.Second, func(time.Time) tea.Msg {
-			return ShowDamageMsg{Damage: damage}
-		}),
-	)
-	
-	// 5. 音声について（重要！）
-	// Bubble Tea自体は音を出せませんが、メッセージで音声再生を指示できます
-	case SoundEffectMsg:
-		// 外部ライブラリで音声再生
-		// 例: github.com/faiface/beep
-		// playSound(msg.Sound)
-		return m, nil
-	
-	// 実際の音声実装例（疑似コード）
-	/*
-	import "github.com/faiface/beep/speaker"
-	
-	case SoundEffectMsg:
-		switch msg.Sound {
-		case "attack.wav":
-			// 攻撃音再生
-			playAttackSound()
-		case "victory.wav":
-			// 勝利音再生
-			playVictorySound()
-		}
-		return m, nil
-	*/
-	
-	// 6. 複雑な演出の組み合わせ例
-	// 攻撃 → アニメーション → 音 → ダメージ表示 → 結果
-	// return tea.Batch(
-	// 	tea.Tick(0, func(time.Time) tea.Msg {
-	// 		return StartAttackAnimationMsg{}
-	// 	}),
-	// 	tea.Tick(300*time.Millisecond, func(time.Time) tea.Msg {
-	// 		return PlayAttackSoundMsg{}
-	// 	}),
-	// 	tea.Tick(600*time.Millisecond, func(time.Time) tea.Msg {
-	// 		return ShowDamageNumbersMsg{Damage: damage}
-	// 	}),
-	// 	tea.Tick(1200*time.Millisecond, func(time.Time) tea.Msg {
-	// 		return AttackSequenceEndMsg{}
-	// 	}),
-	// )
-	
 
+
+/*
+Actions
+ waiting
+ menu
+ enemyAction
+ victory
+ selectitem
+ selectspecial
+ escape
+
+
+ Scenes
+  battle
+  field
+
+  */
+
+  func (m *model) EnemyBattle() tea.Cmd {
+	monster := m.CurrentMonster
+	armorpower := m.Armor.Defense
+	damage := monster.Attack - (m.Defend + armorpower)
+
+	m.HP -= damage
+	msg := fmt.Sprintf("%sの攻撃！%dのダメージを受けた", monster.Name, damage)
+	m.Msg = msg
+	m.Action = "waiting"
+	m.Turn = "player"
+
+	return tea.Tick(time.Second, func(time.Time) tea.Msg {
+		return DelayMsg{}
+	})
+  }
